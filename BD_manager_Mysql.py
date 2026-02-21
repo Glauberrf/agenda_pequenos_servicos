@@ -1,18 +1,17 @@
 import mysql.connector
 from mysql.connector import Error
-from typing import Optional, Dict
-import streamlit as st
+from typing import Optional, Dict, List, Dict, Any
+
 
 
 
 DB_CONFIG = {
-    "host": st.secrets["db"]["host"],
-    "user": st.secrets["db"]["user"],
-    "password": st.secrets["db"]["password"],
-    "database": st.secrets["db"]["database"],
-    "port": st.secrets["db"]["port"]
+    "host": "",
+    "user": "",
+    "password": "",
+    "database": "",
+    "port": 
 }
-
 
 def get_connection():
     return mysql.connector.connect(**DB_CONFIG)
@@ -118,3 +117,32 @@ def inserir_evento(
     conn.commit()
     cursor.close()
     conn.close()
+
+
+
+#--- Query agenda
+def listar_agenda(campo: str, parametro: Any) -> List[Dict[str, Any]]:
+    colunas_permitidas = {"id", "periodo", "data", "nome", "status"}  # ajuste conforme sua tabela
+
+    if campo not in colunas_permitidas:
+        raise ValueError("Campo inválido para consulta.")
+
+    try:
+        conn = get_connection()
+        
+        cursor = conn.cursor(dictionary=True)
+
+        query = f"SELECT * FROM agenda WHERE {campo} = %s;"
+        cursor.execute(query, (parametro,))
+
+        rows = cursor.fetchall()
+        return rows
+
+    except mysql.connector.Error as e:
+        print(f"Erro na consulta: {e}")
+        return []
+
+    finally:
+        if conn:
+            conn.close()
+

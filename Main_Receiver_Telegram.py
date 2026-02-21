@@ -7,20 +7,69 @@ from telegram.ext import (
     filters
 )
 from datetime import datetime
-import streamlit as st
 
-from BD_manager import inserir_acompanhamento, buscar_ultimo_chat, atualizar_acompanhamento, inserir_evento
+import json
 
-#from BD_manager_Mysql import inserir_acompanhamento, buscar_ultimo_chat, atualizar_acompanhamento, inserir_evento
 
-#TOKEN = ""
-TOKEN = st.secrets["api"]["token"]
+#from BD_manager import inserir_acompanhamento, buscar_ultimo_chat, atualizar_acompanhamento, inserir_evento, listar_agenda
 
+from BD_manager_Mysql import inserir_acompanhamento, buscar_ultimo_chat, atualizar_acompanhamento, inserir_evento, listar_agenda
+
+TOKEN = ""
+#TOKEN = st.secrets["api"]["token"]
+
+
+#Funções de fluxo
+def MostrarPeriodos(chat_id):
+    atualizar_acompanhamento(chat_id, "status", "2")
+
+    resposta = f"Qual periodo você gostaria de agendar ?\n1-Manhã\n2-Tarde\n3-Noite"
+    return resposta
+
+def MostrarHorarios(texto_recebido, chat_id):
+    z = ""
+    try:        
+        if(texto_recebido == "1"):     
+            horarios = listar_agenda("periodo","manhã")            
+            resposta = horarios            
+            for horario in horarios:                
+                z = z + str(horario['id'])+" - "+str(horario['data'].strftime("%d/%m/%Y"))+" as "+str(horario['horario'])+"\n"
+            resposta = f"Qual horario você gostaria de agendar ?\n"+z+"\n0 - Voltar"
+            atualizar_acompanhamento(chat_id, "status", "3")
+            return resposta
+                
+        elif(texto_recebido == "2"):
+            horarios = listar_agenda("periodo","tarde")
+            resposta = horarios
+            for horario in horarios:                
+                z = z + str(horario['id'])+" - "+str(horario['data']).strftime("%d/%m/%Y")+" as "+str(horario['horario'])+"\n"
+            resposta = f"Qual horario você gostaria de agendar ?\n"+z+"\n0 - Voltar"
+            atualizar_acompanhamento(chat_id, "status", "3")
+            return resposta                
+            
+        elif(texto_recebido == "3"):
+            horarios = listar_agenda("periodo","noite")
+            resposta = horarios
+            for horario in horarios:                
+                z = z + str(horario['id'])+" - "+str(horario['data'].strftime("%d/%m/%Y"))+" as "+str(horario['horario'])+"\n"
+            resposta = f"Qual horario você gostaria de agendar ?\n"+z+"\n0 - Voltar"
+            atualizar_acompanhamento(chat_id, "status", "3")
+            return resposta
+            
+            
+
+        
+        else:
+            resposta = "Opção inválida, por favor digite um periodo válido"
+    except ValueError:
+        resposta = f"Você não digitou uma opção válida"
+
+###############
 
 # Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Olá! Eu sou um bot em Python. Envie qualquer mensagem."
+        "Olá! Eu sou um bot de agendamento da Malu.\nComo vai ?"
 
         
     )
@@ -30,59 +79,109 @@ async def receber_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto_recebido = update.message.text
     chat_id = update.effective_chat.id
     name = update.effective_chat.full_name
-    print(chat_id, name)
+    print(f"{chat_id=}, {name=}")
 
-    print(texto_recebido)
-    if(texto_recebido == "Oi"):
-        resposta = f"Olá! você gostaria de agendar um horario?\n Digite\n1-SIM\n2-NÃO"
+    print(f"{texto_recebido=}")
+
+    #Começo do atendimento (Fluxo iniciado)
+    if(texto_recebido.lower() == "oi" or texto_recebido.lower() == "sim"):
+        resposta = f"Olá! você gostaria de agendar um horário?\n Digite\n1-SIM\n2-NÃO"
         inserir_acompanhamento(chat_id, "1", name)
-
-
-        #resposta = f"Você escreveu: {texto_recebido}"
-        #await update.message.reply_text(resposta)
-    #print("ultimo Chat: ",buscar_ultimo_chat(chat_id)['status'])
+    #Mostrar periodos
     elif(texto_recebido == "1" and buscar_ultimo_chat(chat_id)['status'] == "1") :
-        atualizar_acompanhamento(chat_id, "status", "2")
-        resposta = f"Qual o dia você gostaria de agendar ?\nDias disponiveis\n1-27/02/2026\n2-23/04/2026\n3-10/05/2026\nDigite a data neste formato dd/mm/yyyy"
+
+        resposta = MostrarPeriodos(chat_id)
         
-    
+        '''atualizar_acompanhamento(chat_id, "status", "2")
+        resposta = f"Qual periodo você gostaria de agendar ?\n1-Manhã\n2-Tarde\n3-Noite"'''
+        
+
+    ##mostrar opção dos periodos Manhã, tarde e Noite
     elif(buscar_ultimo_chat(chat_id)['status'] == "2") :
-        #converter data
-        data_original = texto_recebido
 
-        
+        resposta = MostrarHorarios(texto_recebido, chat_id)
+    
+    #Seleção dos horarios disponiveis
+    elif(buscar_ultimo_chat(chat_id)['status'] == "3" and texto_recebido != "0") :
+
         try:
-            data_convertida = datetime.strptime(data_original, "%d/%m/%Y").strftime("%Y-%m-%d")
-            datetime.strptime(data_convertida, "%Y-%m-%d")
-            atualizar_acompanhamento(chat_id, "status", "3")
-            atualizar_acompanhamento(chat_id, "data_event", data_convertida)
-            resposta = f"Agendado para o dia 27/02/2026\nQual o horario ?"            
-        except ValueError:
-            resposta = f"A data que você digitou não está no formato correto.\nDigite a data no seguinte formato dd/mm/yyyy"  
-
-
-        
-
+            #converter data
+            id = texto_recebido
+            data_horario_agenda = listar_agenda("id",id)
             
-        
+            print("Data Agenda: ",data_horario_agenda)
+            print("Data agenda data: ",data_horario_agenda[0]['data'])
 
-    elif(buscar_ultimo_chat(chat_id)['status'] == "3") :
+            #sqlite
+            #data_convertida = datetime.strptime(data_horario_agenda[0]['data'], "%d/%m/%Y").strftime("%Y-%m-%d")
+            #mysql
+            data_convertida = data_horario_agenda[0]['data'].strftime("%Y-%m-%d")
+            datetime.strptime(data_convertida, "%Y-%m-%d")
+            
+            atualizar_acompanhamento(chat_id, "data_event", data_convertida)
+
+            atualizar_acompanhamento(chat_id, "time_event", data_horario_agenda[0]['horario'])
+
+            atualizar_acompanhamento(chat_id, "status", "4")
+
+            resposta = f"Você gostaria de adicionar algum comentários ?\n1 - Sim\n2 -Não"
+            
+                       
+        except ValueError:
+            resposta = f"A data que você digitou não está no formato correto.\nDigite a data no seguinte formato dd/mm/yyyy"
+        except IndexError:
+            resposta = "Nenhum evento encontrado para esse ID."
+
+    #Adicionar comentário caso a resposta seja sim para adicionar
+    elif(buscar_ultimo_chat(chat_id)['status'] == "4" and texto_recebido == "1"):
+       atualizar_acompanhamento(chat_id, "status", "5")
+       resposta = "Por favor, escreva o seu comentário"
+
+    #Capturando a mensagem para ser inserida no banco
+    elif(buscar_ultimo_chat(chat_id)['status'] == "5"):
         atualizar_acompanhamento(chat_id, "status", "10")
-        atualizar_acompanhamento(chat_id, "time_event", texto_recebido)
+        data_agendada = buscar_ultimo_chat(chat_id)["data_event"]
+        #data_agendada = datetime.strptime(data_agendada, "%Y-%m-%d")        
+        data_agendada_formatada = data_agendada.strftime("%d/%m/%Y")
 
-        resposta = f"Agendado para {buscar_ultimo_chat(chat_id)["data_event"]} as {buscar_ultimo_chat(chat_id)["time_event"]}\n obrigado !"
+        horario_agendado = buscar_ultimo_chat(chat_id)["time_event"]
+
+        inserir_evento(buscar_ultimo_chat(chat_id)["data_event"],buscar_ultimo_chat(chat_id)["time_event"],"00:30:00","Padão Titulo",texto_recebido,chat_id,name,"Telegram")
+        resposta = f"Então agendamos para {data_agendada_formatada} as {horario_agendado} !\nObrigado !"
+
+    #Caso a resposta de inserir uma mensagem seja "Não"
+    elif(buscar_ultimo_chat(chat_id)['status'] == "4" and texto_recebido == "2"):
+       atualizar_acompanhamento(chat_id, "status", "10")
+       data_agendada = buscar_ultimo_chat(chat_id)["data_event"]
+       #data_agendada = datetime.strptime(data_agendada, "%Y-%m-%d")        
+       data_agendada_formatada = data_agendada.strftime("%d/%m/%Y")
+
+       horario_agendado = buscar_ultimo_chat(chat_id)["time_event"]
+
+       inserir_evento(buscar_ultimo_chat(chat_id)["data_event"],buscar_ultimo_chat(chat_id)["time_event"],"00:30:00","Padão Titulo",texto_recebido,chat_id,name,"Telegram")
+       resposta = f"Então agendamos para {data_agendada_formatada} as {horario_agendado} !\nObrigado !"
+    
+
+    #voltar para priodo
+    elif(texto_recebido == "0" and buscar_ultimo_chat(chat_id)['status'] == "3"):
+
+        atualizar_acompanhamento(chat_id, "status", "1")
+        resposta = MostrarPeriodos(chat_id)  
         
-        inserir_evento(buscar_ultimo_chat(chat_id)["data_event"],buscar_ultimo_chat(chat_id)["time_event"],"+ 30 minutos","Padão Titulo","Padrão descrição",chat_id,name,"Telegram")
 
 
 
-    elif(texto_recebido == "Quem é você?"):
+    #Tratamento de mensagem inválida ao bot
+    elif(texto_recebido.lower() == "quem é você?" or texto_recebido.lower() == "quem e você?"):
         resposta = f"Eu sou um Bot de agendamento!"
         #await update.message.reply_text(resposta)
     #resposta = f"Você escreveu: {texto_recebido}"
 
+    elif(texto_recebido.lower() == "2" and buscar_ultimo_chat(chat_id)['status'] == "1"):
+        resposta = f"Então tudo bem !\nSe precisar é só me chamar."
+
     else:
-        resposta = f"Parece que você não digitou uma opção válida."
+        resposta = f"Parece que você não digitou uma opção válida.\nVocê gostaria de agendar um horário?"
     await update.message.reply_text(resposta)
 
 def main():
