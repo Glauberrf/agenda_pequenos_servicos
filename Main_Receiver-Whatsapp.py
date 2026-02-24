@@ -145,25 +145,27 @@ def webhook():
     #Capturando a mensagem para ser inserida no banco
     elif(buscar_ultimo_chat(chat_id)['status'] == "5"):
         atualizar_acompanhamento(chat_id, "status", "10")
-        data_agendada = buscar_ultimo_chat(chat_id)["data_event"]
+        ultimo_chat = buscar_ultimo_chat(chat_id)
+        data_agendada = ultimo_chat["data_event"]
         #data_agendada = datetime.strptime(data_agendada, "%Y-%m-%d")        
         data_agendada_formatada = data_agendada.strftime("%d/%m/%Y")
 
-        horario_agendado = buscar_ultimo_chat(chat_id)["time_event"]
+        horario_agendado = ultimo_chat["time_event"]
 
-        inserir_evento(buscar_ultimo_chat(chat_id)["data_event"],buscar_ultimo_chat(chat_id)["time_event"],"00:30:00","Padão Titulo",texto_recebido,chat_id,name,"Telegram")
+        inserir_evento(ultimo_chat["data_event"],ultimo_chat["time_event"],"00:30:00","Padão Titulo",texto_recebido,chat_id,name,"Telegram", ultimo_chat["id"])
         resposta = f"Então agendamos para {data_agendada_formatada} as {horario_agendado} !\nObrigado !"
 
     #Caso a resposta de inserir uma mensagem seja "Não"
     elif(buscar_ultimo_chat(chat_id)['status'] == "4" and texto_recebido == "2"):
        atualizar_acompanhamento(chat_id, "status", "10")
-       data_agendada = buscar_ultimo_chat(chat_id)["data_event"]
+       ultimo_chat = buscar_ultimo_chat(chat_id)
+       data_agendada = ultimo_chat["data_event"]
        #data_agendada = datetime.strptime(data_agendada, "%Y-%m-%d")        
        data_agendada_formatada = data_agendada.strftime("%d/%m/%Y")
 
-       horario_agendado = buscar_ultimo_chat(chat_id)["time_event"]
+       horario_agendado = ultimo_chat["time_event"]
 
-       inserir_evento(buscar_ultimo_chat(chat_id)["data_event"],buscar_ultimo_chat(chat_id)["time_event"],"00:30:00","Padão Titulo",texto_recebido,chat_id,name,"Telegram")
+       inserir_evento(ultimo_chat["data_event"],ultimo_chat["time_event"],"00:30:00","Padão Titulo",texto_recebido,chat_id,name,"Telegram", ultimo_chat["id"])
        resposta = f"Então agendamos para {data_agendada_formatada} as {horario_agendado} !\nObrigado !"
     
 
