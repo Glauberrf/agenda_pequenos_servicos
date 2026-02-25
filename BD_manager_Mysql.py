@@ -177,16 +177,6 @@ def limpar_sessoes_expiradas(limite: Any) -> List[int]:
         # Format for IN clause
         format_strings = ','.join(['%s'] * len(ids))
 
-        # 2. Remover eventos relacionados
-        # Como existe ON DELETE CASCADE na tabela events, não é estritamente necessário deletar manualmente,
-        # mas se quiser garantir ou se o banco não suportar FKs corretamente, pode manter.
-        # Com ON DELETE CASCADE, deletar o pai (acompanhamento) já deleta os filhos (events).
-        # Vou manter a deleção explicita para garantir compatibilidade com o código anterior,
-        # mas a constraint FK já faria isso.
-        sql_delete_events = f"DELETE FROM events WHERE acompanhamento_id IN ({format_strings})"
-        cursor.execute(sql_delete_events, tuple(ids))
-
-        # 3. Remover acompanhamentos
         sql_delete_acomp = f"DELETE FROM acompanhamento WHERE id IN ({format_strings})"
         cursor.execute(sql_delete_acomp, tuple(ids))
 
