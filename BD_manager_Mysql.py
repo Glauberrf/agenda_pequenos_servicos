@@ -1,19 +1,20 @@
-from typing import Optional, Dict, List, Any
-
 import mysql.connector
+from mysql.connector import Error
+from typing import Optional, Dict, List, Dict, Any
+
+
+
 
 DB_CONFIG = {
-    "host": "localhost",
-    "user": "seu_usuario",
-    "password": "sua_senha",
-    "database": "seu_banco",
-    "port": 3306
+    "host": "",
+    "user": "",
+    "password": "",
+    "database": "",
+    "port": 
 }
-
 
 def get_connection():
     return mysql.connector.connect(**DB_CONFIG)
-
 
 def inserir_acompanhamento(chat_id: int, status: str, nome: str) -> None:
     conn = get_connection()
@@ -29,7 +30,6 @@ def inserir_acompanhamento(chat_id: int, status: str, nome: str) -> None:
 
     cursor.close()
     conn.close()
-
 
 def atualizar_acompanhamento(chat_id: int, campo: str, information: str) -> bool:
     campos_permitidos = {"status", "nome", "data_event", "time_event"}
@@ -68,7 +68,6 @@ def atualizar_acompanhamento(chat_id: int, campo: str, information: str) -> bool
     conn.close()
     return True
 
-
 def buscar_ultimo_chat(chat_id: int) -> Optional[Dict[str, object]]:
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
@@ -91,30 +90,28 @@ def buscar_ultimo_chat(chat_id: int) -> Optional[Dict[str, object]]:
 
     return row
 
-
 def inserir_evento(
-        event_date,
-        start_time,
-        end_time,
-        title,
-        description,
-        chat_id,
-        name,
-        created_by,
-        acompanhamento_id
+    event_date,
+    start_time,
+    end_time,
+    title,
+    description,
+    chat_id,
+    name,
+    created_by
 ) -> None:
     conn = get_connection()
     cursor = conn.cursor()
 
     query = """
         INSERT INTO events
-        (event_date, start_time, end_time, title, description, chat_id, name, created_by, acompanhamento_id)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        (event_date, start_time, end_time, title, description, chat_id, name, created_by)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     """
 
     cursor.execute(
         query,
-        (event_date, start_time, end_time, title, description, chat_id, name, created_by, acompanhamento_id)
+        (event_date, start_time, end_time, title, description, chat_id, name, created_by)
     )
 
     conn.commit()
@@ -122,7 +119,8 @@ def inserir_evento(
     conn.close()
 
 
-# --- Query agenda
+
+#--- Query agenda
 def listar_agenda(campo: str, parametro: Any) -> List[Dict[str, Any]]:
     colunas_permitidas = {"id", "periodo", "data", "nome", "status"}  # ajuste conforme sua tabela
 
@@ -131,10 +129,10 @@ def listar_agenda(campo: str, parametro: Any) -> List[Dict[str, Any]]:
 
     try:
         conn = get_connection()
-
+        
         cursor = conn.cursor(dictionary=True)
 
-        query = f"SELECT * FROM agenda WHERE {campo} = %s;"
+        query = f"SELECT * FROM agenda WHERE {campo} = %s AND disponibilidade = 0;"
         cursor.execute(query, (parametro,))
 
         rows = cursor.fetchall()
@@ -149,45 +147,37 @@ def listar_agenda(campo: str, parametro: Any) -> List[Dict[str, Any]]:
             conn.close()
 
 
-def limpar_sessoes_expiradas(limite: Any) -> List[int]:
-    conn = get_connection()
-    ids_removidos = []
 
+
+
+
+def atualizar_agenda(id, campo, informacao):
     try:
-        cursor = conn.cursor(dictionary=True)
+        # Conexão com o banco de dados
+        conn = get_connection()
+        cursor = conn.cursor()
 
-        # 1. Buscar acompanhamentos vencidos
-        sql_select = """
-            SELECT id
-            FROM acompanhamento
-            WHERE status != 10
-            AND created_at <= %s
+        cursor = conn.cursor()
+
+        # Query de atualização
+        sql = f"""
+        UPDATE agenda
+        SET {campo} = {informacao}
+        WHERE id = {id};
         """
-        cursor.execute(sql_select, (limite,))
-        registros = cursor.fetchall()
 
-        if not registros:
+        cursor.execute(sql)
+        conn.commit()  # Confirma a transação
+
+        print(f"{cursor.rowcount} registros atualizados.")
+
+    except mysql.connector.Error as erro:
+        print(f"Erro ao atualizar: {erro}")
+    finally:
+        if conn.is_connected():
             cursor.close()
             conn.close()
-            return []
+            print("Conexão encerrada.")
 
-        ids = [r["id"] for r in registros]
-        ids_removidos = ids
 
-        # Format for IN clause
-        format_strings = ','.join(['%s'] * len(ids))
-
-        sql_delete_acomp = f"DELETE FROM acompanhamento WHERE id IN ({format_strings})"
-        cursor.execute(sql_delete_acomp, tuple(ids))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-    except mysql.connector.Error as e:
-        print(f"Erro: {e}")
-        if conn and conn.is_connected():
-            conn.rollback()
-            conn.close()
-
-    return ids_removidos
+#atualizar_agenda(6, "disponibilidade", 7)
