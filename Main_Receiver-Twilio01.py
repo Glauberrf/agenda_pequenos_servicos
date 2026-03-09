@@ -164,7 +164,7 @@ def webhook():
             atualizar_acompanhamento(chat_id, "status", "4")
 
             #atualizar a disponibilidade da agenda para não aparecer depois da data ser agendada
-            atualizar_agenda(int(texto_recebido), "disponibilidade", "1")
+            atualizar_agenda(int(texto_recebido), "disponibilidade", "nao")
 
             resposta.body(f"Você gostaria de adicionar algum comentários ?\n1 - Sim\n2 -Não")
             

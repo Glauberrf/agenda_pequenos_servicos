@@ -132,7 +132,7 @@ def listar_agenda(campo: str, parametro: Any) -> List[Dict[str, Any]]:
         
         cursor = conn.cursor(dictionary=True)
 
-        query = f"SELECT * FROM agenda WHERE {campo} = %s AND disponibilidade = 0;"
+        query = f"SELECT * FROM agenda WHERE {campo} = %s AND disponibilidade = sim;"
         cursor.execute(query, (parametro,))
 
         rows = cursor.fetchall()
