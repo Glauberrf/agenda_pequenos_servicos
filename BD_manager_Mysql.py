@@ -1,6 +1,7 @@
 import mysql.connector
 from mysql.connector import Error
 from typing import Optional, Dict, List, Dict, Any
+from datetime import datetime
 
 
 
@@ -10,7 +11,7 @@ DB_CONFIG = {
     "user": "",
     "password": "",
     "database": "",
-    "port": 
+    "port": 27341
 }
 
 def get_connection():
@@ -89,6 +90,51 @@ def buscar_ultimo_chat(chat_id: int) -> Optional[Dict[str, object]]:
     conn.close()
 
     return row
+
+
+def get_events():
+    conn = get_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT * FROM events
+    """)
+    events = cur.fetchall()
+    cur.close()
+    conn.close()
+    return events
+
+def update_events(id, campo, informacao):
+    try:
+        # Conexão com o banco de dados
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor = conn.cursor()
+
+        # Query de atualização
+        sql = f"""
+        UPDATE events
+        SET {campo} = {informacao}
+        WHERE id = {id};
+        """
+
+        cursor.execute(sql)
+        conn.commit()  # Confirma a transação
+
+        print(f"{cursor.rowcount} registros atualizados.")
+
+    except mysql.connector.Error as erro:
+        print(f"Erro ao atualizar: {erro}")
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+            print("Conexão encerrada.")
+#update_events(18, "avisos","1")
+
+
+
+
 
 def inserir_evento(
     event_date,

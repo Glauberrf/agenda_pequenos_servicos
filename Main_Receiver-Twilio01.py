@@ -200,7 +200,7 @@ def webhook():
 
        horario_agendado = buscar_ultimo_chat(chat_id)["time_event"]
 
-       inserir_evento(buscar_ultimo_chat(chat_id)["data_event"],buscar_ultimo_chat(chat_id)["time_event"],"00:30:00","Padão Titulo",texto_recebido,chat_id,name,"Telegram")
+       inserir_evento(buscar_ultimo_chat(chat_id)["data_event"],buscar_ultimo_chat(chat_id)["time_event"],"00:30:00","Padão Titulo",texto_recebido,chat_id,name,"Whatsapp")
        resposta.body(f"Então agendamos para {data_agendada_formatada} as {horario_agendado} !\nObrigado !")
     
 
