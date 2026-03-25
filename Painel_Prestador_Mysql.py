@@ -267,6 +267,8 @@ if pagina == "Agenda de Eventos":
 
             with st.form("novo_evento"):
 
+                nome = st.text_input("Nome")
+
                 d = st.date_input("Data", st.session_state.selected_date)
 
                 s = st.time_input("Início", time(9,0))
@@ -279,18 +281,18 @@ if pagina == "Agenda de Eventos":
 
                 chat = st.text_input("Chat ID")
 
-                nome = st.text_input("Nome")
+                
 
                 if st.form_submit_button("Salvar"):
 
                     add_event({
+                        "name": nome,
                         "event_date": d,
                         "start_time": s,
                         "end_time": e,
                         "title": titulo,
                         "description": desc,
-                        "chat_id": chat,
-                        "name": nome,
+                        "chat_id": chat,                        
                         "created_by": st.session_state.username
                     })
 
