@@ -81,7 +81,7 @@ def add_event(data):
 
     cur.execute("""
         INSERT INTO events
-        (event_date,start_time,end_time,title,description,chat_id,name,created_by)
+        (name,start_time,end_time,title,description,chat_id,event_date,created_by)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
     """, tuple(data.values()))
 
@@ -98,13 +98,13 @@ def update_event(event_id, data):
 
     cur.execute("""
         UPDATE events SET
-        event_date=%s,
+        name=%s,
         start_time=%s,
         end_time=%s,
         title=%s,
         description=%s,
         chat_id=%s,
-        name=%s
+        event_date=%s
         WHERE id=%s
     """, (*data.values(), event_id))
 
