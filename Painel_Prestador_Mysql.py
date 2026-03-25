@@ -305,6 +305,8 @@ if pagina == "Agenda de Eventos":
 
             with st.form("editar_evento"):
 
+                nome = st.text_input("Nome", ev["name"])
+
                 d = st.date_input("Data", ev["event_date"])
 
                 s = st.time_input("Inicio", timedelta_to_time(ev["start_time"]))
@@ -317,18 +319,19 @@ if pagina == "Agenda de Eventos":
 
                 chat = st.text_input("Chat ID", ev["chat_id"])
 
-                nome = st.text_input("Nome", ev["name"])
+                
 
                 if st.form_submit_button("Atualizar"):
 
                     update_event(ev["id"],{
+                        "name": nome,
                         "event_date": d,
                         "start_time": s,
                         "end_time": e,
                         "title": titulo,
                         "description": desc,
-                        "chat_id": chat,
-                        "name": nome
+                        "chat_id": chat
+                        
                     })
 
                     st.session_state.mode = "idle"
