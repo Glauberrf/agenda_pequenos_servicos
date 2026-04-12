@@ -23,11 +23,11 @@ TOKEN = ""
 def MostrarPeriodos(chat_id, name, status):
     #
     
-    if(status == "10" or status == "null"):
+    '''if(status == "10" or status == "null"):
         inserir_acompanhamento(chat_id, "2", name)
     
     else:
-        atualizar_acompanhamento(chat_id, "status", "2")
+        atualizar_acompanhamento(chat_id, "status", "2")'''
 
 
     resposta = f"Qual periodo você gostaria de agendar ?\n1-Manhã\n2-Tarde\n3-Noite"
@@ -43,7 +43,7 @@ def MostrarHorarios(texto_recebido, chat_id):
             for horario in horarios:                
                 z = z + str(horario['id'])+" - "+horario['data'].strftime("%d/%m/%Y")+" as "+str(horario['horario'])+"\n"
             resposta = f"Qual horario você gostaria de agendar ?\n"+z+"\n0 - Voltar"
-            atualizar_acompanhamento(chat_id, "status", "3")
+            atualizar_acompanhamento(chat_id, "status", "4")
             return resposta
                 
         elif(texto_recebido == "2"):
@@ -52,7 +52,7 @@ def MostrarHorarios(texto_recebido, chat_id):
             for horario in horarios:                
                 z = z + str(horario['id'])+" - "+horario['data'].strftime("%d/%m/%Y")+" as "+str(horario['horario'])+"\n"
             resposta = f"Qual horario você gostaria de agendar ?\n"+z+"\n0 - Voltar"
-            atualizar_acompanhamento(chat_id, "status", "3")
+            atualizar_acompanhamento(chat_id, "status", "4")
             return resposta                
             
         elif(texto_recebido == "3"):
@@ -61,7 +61,7 @@ def MostrarHorarios(texto_recebido, chat_id):
             for horario in horarios:                
                 z = z + str(horario['id'])+" - "+horario['data'].strftime("%d/%m/%Y")+" as "+str(horario['horario'])+"\n"
             resposta = f"Qual horario você gostaria de agendar ?\n"+z+"\n0 - Voltar"
-            atualizar_acompanhamento(chat_id, "status", "3")
+            atualizar_acompanhamento(chat_id, "status", "4")
             return resposta
             
             
@@ -110,12 +110,26 @@ async def receber_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("Status: ", status)
         print("Status type: ", type(status))
 
+    #solicitar o nome
+    elif(texto_recebido == "1" and  status == "10" or texto_recebido == "1" and status == "null") :
+
+        if(status == "10" or status == "null"):
+            inserir_acompanhamento(chat_id, "2", name)
+            resposta = "Por favor, informe o seu nome"
+    
+        else:
+            atualizar_acompanhamento(chat_id, "status", "2")
+            print("Por favor, informe o seu nome")
+            resposta = "Por favor, informe o seu nome"
 
     
     
     
-    #Mostrar periodos Manhã, tarde e Noite
-    elif(texto_recebido == "1" and  status == "10" or texto_recebido == "1" and status == "null") :
+    #Mostrar periodos Manhã, tarde e Noite e inserir o nome da pessoa na tabela
+    elif(status == "2") :
+        atualizar_acompanhamento(chat_id, "nome", texto_recebido)
+        atualizar_acompanhamento(chat_id, "status", "3")
+        
         print("Mostrar os periodos manhã, tarde e noite")
         resposta = MostrarPeriodos(chat_id, name, status)
         
@@ -124,24 +138,25 @@ async def receber_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
 
     ##mostrar horarios
-    elif(status == "2") :
+    elif(status == "3") :
         print("mostrar os horarios disponiveis")
         resposta = MostrarHorarios(texto_recebido, chat_id)
     
     #Seleção dos horarios disponiveis
-    elif(texto_recebido != "0" and status == "3") :
+    elif(texto_recebido != "0" and status == "4") :
 
         try:
             #converter data
             id = texto_recebido
             data_horario_agenda = listar_agenda("id",id)
             
-            print("Data Agenda: ",data_horario_agenda)
-            print("Data agenda data: ",data_horario_agenda[0]['data'])
+            #print("Data Agenda: ",data_horario_agenda)
+            ##print("Data agenda data: ",data_horario_agenda[0]['data'])
 
             #sqlite
             #data_convertida = datetime.strptime(data_horario_agenda[0]['data'], "%d/%m/%Y").strftime("%Y-%m-%d")
             #mysql
+            print("Datatatata", data_horario_agenda)
             data_convertida = data_horario_agenda[0]['data'].strftime("%Y-%m-%d")
             datetime.strptime(data_convertida, "%Y-%m-%d")
             
@@ -149,25 +164,22 @@ async def receber_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             atualizar_acompanhamento(chat_id, "time_event", data_horario_agenda[0]['horario'])
 
-            atualizar_acompanhamento(chat_id, "status", "4")
+            atualizar_acompanhamento(chat_id, "status", "5")
 
             #atualizar a disponibilidade da agenda para não aparecer depois da data ser agendada
-            atualizar_agenda(int(texto_recebido), "disponibilidade", "nao")
+            atualizar_agenda(int(texto_recebido), "disponibilidade", "'nao'")
 
-            resposta = f"Você gostaria de adicionar algum comentários ?\n1 - Sim\n2 -Não"
+            resposta = f"Por favor, escreva qual será o procedimento."
             
                        
         except ValueError:
-            resposta = f"A data que você digitou não está no formato correto.\nDigite a data no seguinte formato dd/mm/yyyy"
+            resposta = f"A data que você digitou não está no formato correto.\nDigite a data no seguinte formato dd/mm/yyyy"+ ValueError
         except IndexError:
-            resposta = "Nenhum evento encontrado para esse ID, por favor, selecione uma das datas que lhe enviei."
+            resposta = "Nenhum evento encontrado para esse ID, por favor, selecione uma das datas que lhe enviei."+IndexError
 
-    #Adicionar comentário caso a resposta seja sim para adicionar
-    elif(texto_recebido == "1" and status == "4"):
-       atualizar_acompanhamento(chat_id, "status", "5")
-       resposta = "Por favor, escreva o seu comentário"
 
-    #Capturando a mensagem para ser inserida no banco
+    #-----------------------------------------------------------------------------------------------------------------------
+    #Adicionar o procedimento
     elif(status == "5"):
         atualizar_acompanhamento(chat_id, "status", "10")
         data_agendada = buscar_ultimo_chat(chat_id)["data_event"]
@@ -176,26 +188,14 @@ async def receber_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         horario_agendado = buscar_ultimo_chat(chat_id)["time_event"]
 
-        inserir_evento(buscar_ultimo_chat(chat_id)["data_event"],buscar_ultimo_chat(chat_id)["time_event"],"00:30:00","Padão Titulo",texto_recebido,chat_id,name,"Telegram")
-        resposta = f"Então agendamos para {data_agendada_formatada} as {horario_agendado} !\nObrigado !"
-
-    #Caso a resposta de inserir uma mensagem seja "Não"
-    elif(texto_recebido == "2" and status == "4"):
-       atualizar_acompanhamento(chat_id, "status", "10")
-       data_agendada = buscar_ultimo_chat(chat_id)["data_event"]
-       #data_agendada = datetime.strptime(data_agendada, "%Y-%m-%d")        
-       data_agendada_formatada = data_agendada.strftime("%d/%m/%Y")
-
-       horario_agendado = buscar_ultimo_chat(chat_id)["time_event"]
-
-       inserir_evento(buscar_ultimo_chat(chat_id)["data_event"],buscar_ultimo_chat(chat_id)["time_event"],"00:30:00","Padão Titulo",texto_recebido,chat_id,name,"Telegram")
-       resposta = f"Então agendamos para {data_agendada_formatada} as {horario_agendado} !\nObrigado !"
+        inserir_evento(buscar_ultimo_chat(chat_id)["data_event"],buscar_ultimo_chat(chat_id)["time_event"],"00:30:00",buscar_ultimo_chat(chat_id)["nome"],texto_recebido,chat_id,buscar_ultimo_chat(chat_id)["nome"],"Telegram")
+        resposta = f"Então agendamos para {data_agendada_formatada} as {horario_agendado} o seu {texto_recebido}!\nObrigado !"
     
 
     #voltar para priodo
-    elif(texto_recebido == "0" and status == "3"):
+    elif(texto_recebido == "0" and status == "4"):
 
-        atualizar_acompanhamento(chat_id, "status", "2")
+        atualizar_acompanhamento(chat_id, "status", "3")
         resposta = MostrarPeriodos(chat_id, name, status)  
         
 
@@ -212,6 +212,7 @@ async def receber_mensagem(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     else:
         resposta = f"Olá, você gostaria de agendar um horario ?\n1 - Sim\n2 - Não"
+    print("Resposta do BOT: ",resposta)
     await update.message.reply_text(resposta)
 
 def main():
