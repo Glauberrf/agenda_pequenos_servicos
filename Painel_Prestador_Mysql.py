@@ -1,14 +1,12 @@
 import streamlit as st
 import mysql.connector
 import hashlib
-from datetime import datetime, time, timedelta, date
+from datetime import datetime, time, timedelta
 from streamlit_calendar import calendar
+import unicodedata
 
-st.set_page_config(page_title="Agenda Compartilhada", layout="wide")
-
-# =============================
-# DATABASE CONFIG
-# =============================
+# ================= CONFIG =================
+st.set_page_config("Agenda Profissional", layout="wide")
 
 DB_CONFIG = {
     "host": st.secrets["db"]["host"],
@@ -22,528 +20,308 @@ DB_CONFIG = {
 # DATABASE
 # =============================
 
-def get_connection():
+def conn():
     return mysql.connector.connect(**DB_CONFIG)
 
-# =============================
-# UTILS
-# =============================
+# ================= UTILS =================
+def hash_password(p):
+    return hashlib.sha256(p.encode()).hexdigest()
 
-def timedelta_to_time(td):
-    seconds = int(td.total_seconds())
-    return time(seconds // 3600, (seconds % 3600) // 60)
+def td_to_time(td):
+    sec = int(td.total_seconds())
+    return time(sec//3600, (sec%3600)//60)
 
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+def td_to_str(td):
+    sec = int(td.total_seconds())
+    return f"{sec//3600:02}:{(sec%3600)//60:02}"
 
-# =============================
-# AUTH
-# =============================
+def norm_periodo(p):
+    p = unicodedata.normalize("NFKD",(p or "").lower()).encode("ASCII","ignore").decode("ASCII")
+    return p if p in ["manha","tarde","noite"] else "manha"
 
-def authenticate(username, password):
-    conn = get_connection()
-    cur = conn.cursor(dictionary=True)
+def gerar_cor(nome):
+    cores = ["#FF6B6B","#4ECDC4","#1A535C","#FFA600","#6A4C93","#2EC4B6"]
+    return cores[hash(nome) % len(cores)]
 
-    cur.execute(
-        "SELECT id FROM users WHERE username=%s AND password_hash=%s",
-        (username, hash_password(password))
-    )
+# ================= AUTH =================
+def login(u,p):
+    c=conn();cur=c.cursor()
+    cur.execute("SELECT id FROM users WHERE username=%s AND password_hash=%s",(u,hash_password(p)))
+    r=cur.fetchone()
+    cur.close();c.close()
+    return r
 
-    user = cur.fetchone()
+def create_user(u,p):
+    c=conn();cur=c.cursor()
+    cur.execute("INSERT INTO users (username,password_hash) VALUES (%s,%s)",(u,hash_password(p)))
+    c.commit();cur.close();c.close()
 
-    cur.close()
-    conn.close()
-
-    return user is not None
-
-# =============================
-# EVENTS
-# =============================
-
+# ================= EVENTS =================
 def get_events():
-
-    conn = get_connection()
-    cur = conn.cursor(dictionary=True)
-
+    c=conn();cur=c.cursor(dictionary=True)
     cur.execute("SELECT * FROM events")
-    rows = cur.fetchall()
+    r=cur.fetchall()
+    cur.close();c.close()
+    return r
 
-    cur.close()
-    conn.close()
+def add_event(d):
+    c=conn();cur=c.cursor()
+    cur.execute("""INSERT INTO events
+    (event_date,start_time,end_time,title,description,chat_id,name,created_by)
+    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",tuple(d.values()))
+    c.commit();cur.close();c.close()
 
-    return rows
+def upd_event(id,d):
+    c=conn();cur=c.cursor()
+    cur.execute("""UPDATE events SET
+    event_date=%s,start_time=%s,end_time=%s,
+    title=%s,description=%s,chat_id=%s,name=%s
+    WHERE id=%s""",(*d.values(),id))
+    c.commit();cur.close();c.close()
 
+def del_event(id):
+    c=conn();cur=c.cursor()
+    cur.execute("DELETE FROM events WHERE id=%s",(id,))
+    c.commit();cur.close();c.close()
 
-def add_event(data):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        INSERT INTO events
-        (event_date,start_time,end_time,title,description,chat_id,name,created_by)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-    """, tuple(data.values()))
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-
-def update_event(event_id, data):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        UPDATE events SET
-        event_date=%s,
-        start_time=%s,
-        end_time=%s,
-        title=%s,
-        description=%s,
-        chat_id=%s,
-        name=%s
-        WHERE id=%s
-    """, (*data.values(), event_id))
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-
-def delete_event(event_id):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("DELETE FROM events WHERE id=%s", (event_id,))
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-# =============================
-# DISPONIBILIDADE
-# =============================
-
-def inserir_disponibilidade(periodo, data, horario, disponibilidade):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        INSERT INTO agenda (periodo,data,horario,disponibilidade)
-        VALUES (%s,%s,%s,%s)
-    """, (periodo, data, horario, disponibilidade))
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-
-def listar_disponibilidade():
-
-    conn = get_connection()
-    cur = conn.cursor(dictionary=True)
-
+# ================= DISP =================
+def list_disp():
+    c=conn();cur=c.cursor(dictionary=True)
     cur.execute("SELECT * FROM agenda ORDER BY data, horario")
+    r=cur.fetchall()
+    cur.close();c.close()
+    return r
 
-    rows = cur.fetchall()
+def add_disp(p,d,h,s):
+    c=conn();cur=c.cursor()
+    cur.execute("INSERT INTO agenda VALUES (NULL,%s,%s,%s,%s)",(p,d,h,s))
+    c.commit();cur.close();c.close()
 
-    cur.close()
-    conn.close()
+def upd_disp(id,p,d,h,s):
+    c=conn();cur=c.cursor()
+    cur.execute("UPDATE agenda SET periodo=%s,data=%s,horario=%s,disponibilidade=%s WHERE id=%s",(p,d,h,s,id))
+    c.commit();cur.close();c.close()
 
-    return rows
+def del_disp(id):
+    c=conn();cur=c.cursor()
+    cur.execute("DELETE FROM agenda WHERE id=%s",(id,))
+    c.commit();cur.close();c.close()
 
-# =============================
-# SESSION
-# =============================
+# ================= SESSION =================
+st.session_state.setdefault("logado",False)
+st.session_state.setdefault("modo","idle")
+st.session_state.setdefault("evento_sel",None)
+st.session_state.setdefault("data_sel",None)
+st.session_state.setdefault("edit_disp_data",None)
 
-st.session_state.setdefault("logged_in", False)
-st.session_state.setdefault("mode", "idle")
-st.session_state.setdefault("selected_event", None)
-st.session_state.setdefault("selected_date", None)
+# ================= LOGIN =================
+if not st.session_state.logado:
 
-# =============================
-# LOGIN
-# =============================
+    tab1,tab2=st.tabs(["Entrar","Cadastrar"])
 
-if not st.session_state.logged_in:
+    with tab1:
+        u=st.text_input("Usuário",key="l_u")
+        p=st.text_input("Senha",type="password",key="l_p")
 
-    st.title("Login")
+        if st.button("Entrar",key="btn_l"):
+            if login(u,p):
+                st.session_state.logado=True
+                st.session_state.user=u
+                st.rerun()
+            else:
+                st.error("Login inválido")
 
-    username = st.text_input("Usuário")
-    password = st.text_input("Senha", type="password")
+    with tab2:
+        u=st.text_input("Novo usuário",key="c_u")
+        p=st.text_input("Senha",type="password",key="c_p")
 
-    if st.button("Entrar"):
-
-        if authenticate(username, password):
-
-            st.session_state.logged_in = True
-            st.session_state.username = username
-            st.rerun()
-
-        else:
-            st.error("Usuário ou senha inválidos")
+        if st.button("Cadastrar",key="btn_c"):
+            try:
+                #Esse funnção está comentada para que não seja possivel cadastrar no momento, para evitar que pessoas criem usuários sem autorização. Para criar um usuário, descomente a linha abaixo e rode o código, depois comente novamente.
+                #create_user(u,p)
+                st.success("Usuário criado")
+            except:
+                st.error("Já existe")
 
     st.stop()
 
-# =============================
-# MENU
-# =============================
+# ================= MENU =================
+pg=st.sidebar.selectbox("Menu",["Agenda","Disponibilidade"])
 
-st.sidebar.title("Menu")
+# ================= AGENDA =================
+if pg=="Agenda":
 
-pagina = st.sidebar.selectbox(
-    "Selecionar página",
-    ["Agenda de Eventos", "Horários Disponíveis"]
-)
+    col1,col2=st.columns([2,1])
+    events_db=get_events()
 
-# =====================================================
-# PAGINA 1 - EVENTOS
-# =====================================================
+    def conflito(n_ini,n_fim):
+        for ev in events_db:
+            ini=datetime.combine(ev["event_date"],td_to_time(ev["start_time"]))
+            fim=datetime.combine(ev["event_date"],td_to_time(ev["end_time"]))
+            if n_ini < fim and n_fim > ini:
+                return True
+        return False
 
-if pagina == "Agenda de Eventos":
+    cal_events=[{
+        "id":e["id"],
+        "title":f"{e['title']} - {e['name']}",
+        "start":datetime.combine(e["event_date"],td_to_time(e["start_time"])).isoformat(),
+        "end":datetime.combine(e["event_date"],td_to_time(e["end_time"])).isoformat(),
+        "color":gerar_cor(e["name"])
+    } for e in events_db]
 
-    st.title("Agenda Compartilhada")
-
-    col_cal, col_form = st.columns([2,1])
-
-    events_db = get_events()
-
-    calendar_events = []
-
-    for ev in events_db:
-
-        calendar_events.append({
-            "id": ev["id"],
-            "title": ev["title"],
-            "start": datetime.combine(
-                ev["event_date"],
-                timedelta_to_time(ev["start_time"])
-            ).isoformat(),
-
-            "end": datetime.combine(
-                ev["event_date"],
-                timedelta_to_time(ev["end_time"])
-            ).isoformat(),
-        })
-
-    with col_cal:
-
-        cal = calendar(
-            events=calendar_events,
-            options={"initialView": "dayGridMonth","selectable": True}
+    with col1:
+        cal=calendar(
+            events=cal_events,
+            options={
+                "initialView":"dayGridMonth",
+                "locale":"pt-br",
+                "firstDay":1,
+                "height":650,
+                "editable":True,
+                "selectable":True
+            }
         )
 
     if cal.get("dateClick"):
-
-        st.session_state.mode = "new"
-
-        st.session_state.selected_date = datetime.fromisoformat(
-            cal["dateClick"]["date"]
-        ).date()
+        st.session_state.modo="new"
+        st.session_state.data_sel=datetime.fromisoformat(cal["dateClick"]["date"]).date()
 
     if cal.get("eventClick"):
+        st.session_state.modo="edit"
+        st.session_state.evento_sel=next(e for e in events_db if e["id"]==int(cal["eventClick"]["event"]["id"]))
 
-        st.session_state.mode = "edit"
+    # DRAG DROP
+    if cal.get("eventChange"):
+        ev_id=int(cal["eventChange"]["event"]["id"])
+        ns=datetime.fromisoformat(cal["eventChange"]["event"]["start"])
+        ne=datetime.fromisoformat(cal["eventChange"]["event"]["end"])
 
-        st.session_state.selected_event = next(
-            e for e in events_db if e["id"] == int(cal["eventClick"]["event"]["id"])
-        )
-
-    with col_form:
-
-        st.subheader("Ações")
-
-        if st.session_state.mode == "new":
-
-            st.info(f"Novo evento em {st.session_state.selected_date}")
-
-            with st.form("novo_evento"):
-
-                d = st.date_input("Data", st.session_state.selected_date)
-
-                s = st.time_input("Início", time(9,0))
-
-                e = st.time_input("Fim", time(10,0))
-
-                titulo = st.text_input("Título")
-
-                desc = st.text_area("Descrição")
-
-                chat = st.text_input("Chat ID")
-
-                nome = st.text_input("Nome")
-
-                if st.form_submit_button("Salvar"):
-
-                    add_event({
-                        "event_date": d,
-                        "start_time": s,
-                        "end_time": e,
-                        "title": titulo,
-                        "description": desc,
-                        "chat_id": chat,
-                        "name": nome,
-                        "created_by": st.session_state.username
-                    })
-
-                    st.session_state.mode = "idle"
-                    st.rerun()
-
-        elif st.session_state.mode == "edit":
-
-            ev = st.session_state.selected_event
-
-            with st.form("editar_evento"):
-
-                d = st.date_input("Data", ev["event_date"])
-
-                s = st.time_input("Inicio", timedelta_to_time(ev["start_time"]))
-
-                e = st.time_input("Fim", timedelta_to_time(ev["end_time"]))
-
-                titulo = st.text_input("Título", ev["title"])
-
-                desc = st.text_area("Descrição", ev["description"])
-
-                chat = st.text_input("Chat ID", ev["chat_id"])
-
-                nome = st.text_input("Nome", ev["name"])
-
-                if st.form_submit_button("Atualizar"):
-
-                    update_event(ev["id"],{
-                        "event_date": d,
-                        "start_time": s,
-                        "end_time": e,
-                        "title": titulo,
-                        "description": desc,
-                        "chat_id": chat,
-                        "name": nome
-                    })
-
-                    st.session_state.mode = "idle"
-                    st.rerun()
-
-                if st.form_submit_button("Excluir"):
-
-                    delete_event(ev["id"])
-
-                    st.session_state.mode = "idle"
-                    st.rerun()
-
+        if conflito(ns,ne):
+            st.error("Conflito de horário")
         else:
-
-            st.write("Clique em um dia ou evento no calendário.")
-
-# =====================================================
-# PAGINA 2 - DISPONIBILIDADE
-# =====================================================
-
-# =====================================================
-# UTILS PARA HORARIO
-# =====================================================
-
-def timedelta_to_time(td):
-    seconds = int(td.total_seconds())
-    return time(seconds // 3600, (seconds % 3600) // 60)
-
-
-def timedelta_to_str(td):
-    seconds = int(td.total_seconds())
-    h = seconds // 3600
-    m = (seconds % 3600) // 60
-    return f"{h:02}:{m:02}"
-
-
-# =====================================================
-# DISPONIBILIDADE CRUD
-# =====================================================
-
-def atualizar_disponibilidade(id, periodo, data, horario, disponibilidade):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        UPDATE agenda
-        SET periodo=%s, data=%s, horario=%s, disponibilidade=%s
-        WHERE id=%s
-    """,(periodo,data,horario,disponibilidade,id))
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-
-def excluir_disponibilidade(id):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("DELETE FROM agenda WHERE id=%s",(id,))
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-
-# =====================================================
-# PAGINA 2
-# =====================================================
-
-if pagina == "Horários Disponíveis":
-
-    st.title("Cadastro de Horários Disponíveis")
-
-    st.session_state.setdefault("edit_disp", None)
-
-    col1, col2 = st.columns([1,1])
-
-    # =========================
-    # INSERIR
-    # =========================
-
-    with col1:
-
-        if st.session_state.edit_disp is None:
-
-            st.subheader("Inserir horário")
-
-            with st.form("novo_horario"):
-
-                periodo = st.selectbox(
-                    "Período",
-                    ["manha","tarde","noite"]
-                )
-
-                data = st.date_input("Data")
-
-                horario = st.time_input("Horário")
-
-                disponibilidade = st.selectbox(
-                    "Disponibilidade",
-                    ["sim","nao"]
-                )
-
-                if st.form_submit_button("Salvar"):
-
-                    inserir_disponibilidade(
-                        periodo,
-                        data,
-                        horario,
-                        disponibilidade
-                    )
-
-                    st.success("Horário cadastrado")
-
-                    st.rerun()
-
-        # =========================
-        # EDITAR
-        # =========================
-
-        else:
-
-            registro = st.session_state.edit_disp
-
-            st.subheader("Editar horário")
-
-            horario_convertido = (
-                timedelta_to_time(registro["horario"])
-                if isinstance(registro["horario"], timedelta)
-                else registro["horario"]
-            )
-
-            with st.form("editar_horario"):
-
-                periodo = st.selectbox(
-                    "Período",
-                    ["manha","tarde","noite"],
-                    index=["manha","tarde","noite"].index(registro["periodo"])
-                )
-
-                data = st.date_input(
-                    "Data",
-                    registro["data"]
-                )
-
-                horario = st.time_input(
-                    "Horário",
-                    horario_convertido
-                )
-
-                disponibilidade = st.selectbox(
-                    "Disponibilidade",
-                    ["sim","nao"],
-                    index=["sim","nao"].index(registro["disponibilidade"])
-                )
-
-                if st.form_submit_button("Atualizar"):
-
-                    atualizar_disponibilidade(
-                        registro["id"],
-                        periodo,
-                        data,
-                        horario,
-                        disponibilidade
-                    )
-
-                    st.session_state.edit_disp = None
-
-                    st.success("Atualizado")
-
-                    st.rerun()
-
-                if st.form_submit_button("Excluir"):
-
-                    excluir_disponibilidade(registro["id"])
-
-                    st.session_state.edit_disp = None
-
-                    st.success("Excluído")
-
-                    st.rerun()
-
-    # =========================
-    # LISTA
-    # =========================
+            ev=next(e for e in events_db if e["id"]==ev_id)
+            upd_event(ev_id,{
+                "event_date":ns.date(),
+                "start_time":ns.time(),
+                "end_time":ne.time(),
+                "title":ev["title"],
+                "description":ev["description"],
+                "chat_id":ev["chat_id"],
+                "name":ev["name"]
+            })
+            st.rerun()
 
     with col2:
 
-        st.subheader("Horários cadastrados")
+        if st.session_state.modo=="new":
+            with st.form("f_new"):
+                nome=st.text_input("Nome",key="n1")
+                d=st.date_input("Data",st.session_state.data_sel,key="d1")
+                s=st.time_input("Inicio",key="s1")
+                e=st.time_input("Fim",key="e1")
+                t = nome#replica o nome no título para facilitar a visualização no calendário
+                #t=st.text_input("Nome",key="t1")
+                desc=st.text_area("Procedimento",key="ds1")
+                chat=st.text_input("Chat",key="c1")
 
-        dados = listar_disponibilidade()
+                if st.form_submit_button("Salvar"):
+                    ini=datetime.combine(d,s)
+                    fim=datetime.combine(d,e)
 
-        for row in dados:
+                    if conflito(ini,fim):
+                        st.error("Já existe evento nesse horário")
+                    else:
+                        add_event({
+                            "event_date":d,"start_time":s,"end_time":e,
+                            "title":t,"description":desc,
+                            "chat_id":chat,"name":nome,
+                            "created_by":st.session_state.user
+                        })
+                        st.session_state.modo="idle"
+                        st.rerun()
 
-            colA, colB = st.columns([4,1])
+        elif st.session_state.modo=="edit":
+
+            ev=st.session_state.evento_sel
+
+            with st.form("f_edit"):
+                nome=st.text_input("Nome",ev["name"],key="n2")
+                d=st.date_input("Data",ev["event_date"],key="d2")
+                s=st.time_input("Inicio",td_to_time(ev["start_time"]),key="s2")
+                e=st.time_input("Fim",td_to_time(ev["end_time"]),key="e2")
+                t = nome#replica o nome no título para facilitar a visualização no calendário
+                #t=st.text_input("Nome",ev["title"],key="t2")
+                desc=st.text_area("Procedimento",ev["description"],key="ds2")
+                chat=st.text_input("Chat",ev["chat_id"],key="c2")
+
+                if st.form_submit_button("Atualizar"):
+                    upd_event(ev["id"],{
+                        "event_date":d,"start_time":s,"end_time":e,
+                        "title":t,"description":desc,"chat_id":chat,"name":nome
+                    })
+                    st.session_state.modo="idle"
+                    st.rerun()
+
+                if st.form_submit_button("Excluir"):
+                    del_event(ev["id"])
+                    st.session_state.modo="idle"
+                    st.rerun()
+
+# ================= DISP =================
+if pg=="Disponibilidade":
+
+    col1,col2=st.columns(2)
+
+    with col1:
+
+        if st.session_state.edit_disp_data is None:
+
+            with st.form("disp_new"):
+                p=st.selectbox("Periodo",["manha","tarde","noite"],key="p1")
+                d=st.date_input("Data",key="d3")
+                h=st.time_input("Hora",key="h1")
+                s=st.selectbox("Disponível",["sim","nao"],key="s3")
+
+                if st.form_submit_button("Salvar"):
+                    add_disp(p,d,h,s)
+                    st.rerun()
+
+        else:
+
+            r=st.session_state.edit_disp_data
+
+            with st.form("disp_edit"):
+                lista=["manha","tarde","noite"]
+                p=st.selectbox("Periodo",lista,index=lista.index(norm_periodo(r["periodo"])),key="p2")
+                d=st.date_input("Data",r["data"],key="d4")
+                h=st.time_input("Hora",
+                    td_to_time(r["horario"]) if isinstance(r["horario"],timedelta) else r["horario"],
+                    key="h2")
+                s=st.selectbox("Disponível",["sim","nao"],
+                    index=["sim","nao"].index(r["disponibilidade"]),key="s4")
+
+                if st.form_submit_button("Atualizar"):
+                    upd_disp(r["id"],p,d,h,s)
+                    st.session_state.edit_disp_data=None
+                    st.rerun()
+
+                if st.form_submit_button("Excluir"):
+                    del_disp(r["id"])
+                    st.session_state.edit_disp_data=None
+                    st.rerun()
+
+    with col2:
+
+        for row in list_disp():
+
+            colA,colB=st.columns([4,1])
 
             with colA:
-
-                horario_txt = (
-                    timedelta_to_str(row["horario"])
-                    if isinstance(row["horario"], timedelta)
-                    else row["horario"].strftime("%H:%M")
-                )
-
-                st.write(
-                    f"📅 {row['data']} | ⏰ {horario_txt} | {row['periodo']} | {row['disponibilidade']}"
-                )
+                h=td_to_str(row["horario"]) if isinstance(row["horario"],timedelta) else row["horario"].strftime("%H:%M")
+                st.write(f"{row['data']} | {h} | {row['periodo']} | {row['disponibilidade']}")
 
             with colB:
-
-                if st.button("Editar", key=f"edit_{row['id']}"):
-
-                    st.session_state.edit_disp = row
-
+                if st.button("Editar",key=f"ed_{row['id']}"):
+                    st.session_state.edit_disp_data=row
                     st.rerun()
